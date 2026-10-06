@@ -2,7 +2,7 @@
 // la base de datos Supabase (código, sector, prioridad, duplicados,
 // historial, notificaciones, permisos por rol).
 import {
-  CATEGORIES, SECTORS, SETTINGS, STAFF_ROLES, TEST_REPORTS, insideDistrict, statusOf,
+  CATEGORIES, SECTORS, SETTINGS, STAFF_ROLES, insideDistrict, statusOf,
 } from './catalog.js';
 import {
   DAY, computePriority, dashboardStats, detectDuplicates, distanceM, findSector,
@@ -40,7 +40,7 @@ export class EngineBackend {
   get label() {
     return this.mode === 'artifact'
       ? 'Demostración compartida: los datos se guardan en línea y los ven quienes tengan el enlace.'
-      : 'Modo demostración: los datos se guardan solo en este dispositivo.';
+      : 'Los datos se guardan en este dispositivo.';
   }
   get features() {
     return { passwordAuth: this.auth.passwordAuth, userAdmin: this.auth.canManageUsers, photosInline: false };
@@ -52,10 +52,20 @@ export class EngineBackend {
     if (!this.store.list('categories').length && this.mode === 'local') {
       await this.store.putMany('categories', CATEGORIES);
     }
-    if (this.mode === 'local' && this.store.isEmpty) {
-      await this.seedTestData(this.auth.demoCitizenId, { silent: true });
-      await this.store.setMeta({ seeded: true });
+    // Versiones anteriores cargaban datos de prueba automáticamente: se eliminan.
+    if (this.mode === 'local' && !this.store.meta?.cleanedV2) {
+      await this._removeTestData();
+      const reset = {};
+      if (!this.store.list('reports').length) {
+        for (const k of Object.keys(this.store.meta || {})) if (k.startsWith('counter_')) reset[k] = 0;
+        for (const t of ['history', 'observations', 'duplicates', 'notifications']) {
+          for (const row of this.store.list(t)) await this.store.remove(t, row.id);
+        }
+      }
+      await this.store.setMeta({ ...reset, cleanedV2: true, seeded: true });
     }
+    // Pide al navegador no borrar los datos guardados en este dispositivo.
+    try { await navigator.storage?.persist?.(); } catch {}
   }
   onChange(fn) { return this.store.onChange(fn); }
 
@@ -339,43 +349,16 @@ export class EngineBackend {
     await this.store.put('categories', { ...cat, id, order: cat.order ?? 50 });
   }
 
-  // ----------------------------------------------------------- datos de prueba
-  async seedTestData(ownerId, { silent = false } = {}) {
-    if (!silent) await this._requireAdmin();
-    if (!this.store.list('categories').length) await this.store.putMany('categories', CATEGORIES);
-    if (this.store.list('reports').some((r) => r.is_test_data)) return 0;
-    const owner = { id: ownerId || 'demo-ciudadano', role: 'citizen' };
-    const admin = { id: this.auth.demoAdminId || (await this.auth.current())?.id || 'demo-admin', role: 'admin' };
-    const cats = this.categories(true);
-    let n = 0;
-    for (const [title, description, code, severity, lat, lng, address, daysAgo, finalStatus, note] of TEST_REPORTS) {
-      const r = await this.createReport({
-        title, description, category_id: cats.find((c) => c.code === code).id, severity,
-        latitude: lat, longitude: lng, address, client_uuid: uuid(),
-      }, { asUser: owner, createdAt: new Date(Date.now() - daysAgo * DAY).toISOString(), testData: true });
-      const steps = {
-        en_revision: ['en_revision'], validado: ['en_revision', 'validado'], en_proceso: ['en_revision', 'validado', 'en_proceso'],
-        atendido: ['en_revision', 'validado', 'en_proceso', 'atendido'], cerrado: ['en_revision', 'validado', 'en_proceso', 'atendido', 'cerrado'],
-        rechazado: ['rechazado'], recibido: [],
-      }[finalStatus];
-      for (const [i, s] of steps.entries()) {
-        await this.changeStatus(r.id, s, i === steps.length - 1 ? note : null, { as: admin });
-      }
-      n++;
-    }
-    await this.recalcSilently();
-    // Las notificaciones históricas de los datos de prueba quedan como leídas.
-    const testIds = new Set(this.store.list('reports').filter((r) => r.is_test_data).map((r) => r.id));
-    for (const x of this.store.list('notifications').filter((x) => testIds.has(x.report_id) && !x.read_at)) {
-      await this.store.put('notifications', { ...x, read_at: x.created_at });
-    }
-    return n;
-  }
+  // ----------------------------------------------------------- utilidades de datos
   async recalcSilently() {
     for (const r of this.store.list('reports')) await this._refreshPriority(r.id);
   }
   async clearTestData() {
     await this._requireAdmin();
+    return this._removeTestData();
+  }
+  hasTestData() { return this.store.list('reports').some((r) => r.is_test_data); }
+  async _removeTestData() {
     const ids = new Set(this.store.list('reports').filter((r) => r.is_test_data).map((r) => r.id));
     for (const t of ['history', 'observations', 'notifications']) {
       for (const row of this.store.list(t).filter((x) => ids.has(x.report_id))) await this.store.remove(t, row.id);
@@ -384,7 +367,32 @@ export class EngineBackend {
       await this.store.remove('duplicates', row.id);
     }
     for (const id of ids) { await this.store.remove('reports', id); await this.store.deletePhoto?.(id); }
+    for (const u of this.store.list('users').filter((x) => x.id === 'demo-admin' || x.id === 'demo-ciudadano')) {
+      await this.store.remove('users', u.id);
+    }
     return ids.size;
+  }
+
+  // ----------------------------------------------------------- copia de seguridad
+  async exportData() {
+    await this._requireAdmin();
+    const out = { app: 'registro-riesgos-santa-marta', version: 1, exported_at: nowIso(), tables: {}, photos: {} };
+    for (const t of ['reports', 'history', 'observations', 'duplicates', 'notifications', 'categories']) out.tables[t] = this.store.list(t);
+    out.tables.users = this.store.list('users').map(({ recovery, ...u }) => u);
+    for (const r of this.store.list('reports').filter((x) => x.has_photo)) out.photos[r.id] = await this.store.getPhoto(r.id);
+    out.meta = this.store.meta;
+    return out;
+  }
+  async importData(data) {
+    await this._requireAdmin();
+    if (data?.app !== 'registro-riesgos-santa-marta' || !data.tables) throw new AppError('El archivo no es una copia de Registro de Riesgos.');
+    for (const [t, rows] of Object.entries(data.tables)) if (Array.isArray(rows)) await this.store.putMany(t, rows);
+    for (const [id, url] of Object.entries(data.photos || {})) if (url) await this.store.putPhoto(id, url);
+    const counters = Object.fromEntries(Object.entries(data.meta || {}).filter(([k]) => k.startsWith('counter_')));
+    const merged = {};
+    for (const [k, v] of Object.entries(counters)) merged[k] = Math.max(v, this.store.meta?.[k] || 0);
+    await this.store.setMeta(merged);
+    return (data.tables.reports || []).length;
   }
 }
 

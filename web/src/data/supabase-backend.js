@@ -282,7 +282,9 @@ export class SupabaseBackend {
     else await this._raw('POST', '/rest/v1/categories', body);
     this.cats = (await this._get('categories?select=*&order=sort_order.asc')).map(mapCategory);
   }
-  async seedTestData() { return this._rpc('seed_test_data', { p_user: this.profile.id }); }
+  hasTestData() { return false; }
+  async exportData() { throw new AppError('Con Supabase las copias de seguridad se hacen desde el panel de Supabase.'); }
+  async importData() { throw new AppError('Con Supabase las copias de seguridad se hacen desde el panel de Supabase.'); }
   async clearTestData() { return this._rpc('clear_test_data'); }
 }
 export { uuid };

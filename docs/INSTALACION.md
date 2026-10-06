@@ -25,7 +25,7 @@
 3. `20261005000003_rls.sql` – seguridad por filas
 4. `20261005000004_catalogs.sql` – roles, estados, categorías, sectores, parámetros
 5. `20261005000005_storage.sql` – bucket de fotos y sus políticas
-6. `20261005000006_test_data.sql` – funciones para cargar/borrar datos de prueba
+6. `20261005000006_test_data.sql` – funciones opcionales para pruebas técnicas (no cargan nada por sí solas)
 
 **Opción B – Supabase CLI:**
 ```bash
@@ -58,7 +58,7 @@ select cron.schedule('recalcular-prioridades', '0 * * * *', $$select public.reca
 ```
 (El panel también tiene un botón "Recalcular prioridades".)
 
-### 2.6 Primer administrador y datos de prueba
+### 2.6 Primer administrador
 1. Ejecuta la app y crea tu cuenta.
 2. En el SQL Editor:
    ```sql
@@ -66,15 +66,9 @@ select cron.schedule('recalcular-prioridades', '0 * * * *', $$select public.reca
    update public.profiles set role = 'admin'
    where id = (select id from auth.users where email = 'tu@correo.com');
 
-   -- cargar 9 reportes ficticios (marcados [PRUEBA] e is_test_data = true)
-   select public.seed_test_data((select id from auth.users where email = 'tu@correo.com'));
-
-   -- eliminarlos cuando ya no se necesiten
-   select public.clear_test_data();
    ```
 3. Cierra sesión y vuelve a entrar: en **Perfil** aparece "Abrir panel administrativo".
 
-Los datos de prueba incluyen dos reportes de huecos en la Avenida Libertador a ~34 m: el segundo queda marcado como **posible duplicado** para demostrar la funcionalidad.
 
 ### 2.7 IA opcional: Edge Function `classify-report`
 ```bash
@@ -140,3 +134,10 @@ Hoy las notificaciones llegan por Realtime mientras la app está abierta o en se
 1. Crear proyecto Firebase y agregar `google-services.json` en `app/android/app/`.
 2. Agregar `firebase_messaging` y guardar el token en `public.device_tokens`.
 3. Crear una Edge Function `push-notify` que envíe mediante FCM HTTP v1 y conectarla con un **Database Webhook** sobre `INSERT` en `public.notifications`.
+
+## 7. Cuenta administradora de la versión web (modo local)
+
+- El correo del administrador y la huella cifrada de su clave están en `web/public/config.js` (`ADMIN_ACCOUNT`). La clave en sí no está guardada en ningún archivo.
+- Cambiar la clave: `node web/tools/admin-hash.mjs "NuevaClaveSegura"`, pegar `salt`, `iterations` y `hash` en `ADMIN_ACCOUNT` y subir el cambio (GitHub vuelve a publicar la web y la APK).
+- La clave del administrador no se puede recuperar ni cambiar desde la aplicación, y nadie puede registrarse con ese correo.
+- Sin Supabase, cada dispositivo guarda sus propios datos. Desde el Dashboard el administrador puede **Descargar copia de seguridad** y **Restaurar copia**.

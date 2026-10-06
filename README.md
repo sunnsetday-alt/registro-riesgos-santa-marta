@@ -2,11 +2,24 @@
 
 Aplicación Android de participación ciudadana para reportar problemáticas, riesgos y daños urbanos en Santa Marta, con panel administrativo para que la entidad responsable (por ejemplo, la Alcaldía) reciba, visualice, clasifique, priorice y gestione los reportes.
 
+## Abrir y probar ya
+
+- **Aplicación web instalable (PWA):** https://sunnsetday-alt.github.io/registro-riesgos-santa-marta/
+  Ábrela en el celular (Chrome) → menú ⋮ → *Instalar aplicación*. En iPhone: Safari → Compartir → *Agregar a pantalla de inicio*.
+- **APK Android:** pestaña *Releases* del repositorio → `registro-riesgos-santa-marta.apk`.
+- **Cuentas:** cada ciudadano crea su propia cuenta con su correo y una clave. La aplicación empieza vacía, sin datos de prueba.
+- **Administrador:** hay una única cuenta administradora. Su clave no está en el código: en `web/public/config.js` solo se guarda una huella cifrada (PBKDF2). Para cambiarla: `node web/tools/admin-hash.mjs "NuevaClave"` y pegar el resultado en `ADMIN_ACCOUNT`.
+- **Dónde se guardan los datos:** sin Supabase, en el navegador o teléfono de cada persona (el administrador puede descargar y restaurar copias de seguridad desde el Dashboard). Para que los reportes de los ciudadanos lleguen al administrador desde cualquier dispositivo, configura Supabase en `web/public/config.js` (ver docs/INSTALACION.md).
+
+Cada vez que se sube un cambio a `main`, GitHub Actions (`.github/workflows/publicar.yml`) vuelve a publicar la web y a compilar la APK.
+
 ## Qué incluye
 
 | Área | Implementación |
 |---|---|
-| App Android | Flutter 3 (Dart), Material 3, Riverpod, go_router |
+| App web (PWA) | `web/`: JavaScript sin dependencias, manifest, service worker, modo sin conexión; probada con 70 pruebas en Chromium |
+| APK Android | Generada desde la PWA con Capacitor (GitHub Actions) |
+| App Flutter | `app/`: Flutter 3 (Dart), Material 3, Riverpod, go_router (versión nativa para Supabase) |
 | Backend | Supabase: PostgreSQL + Auth + Storage + Realtime + Edge Functions |
 | Base de datos | 15 tablas, triggers, funciones, vista pública, RLS en todas las tablas |
 | Autenticación | Registro, inicio/cierre de sesión, recuperación con código, edición de perfil |
@@ -22,7 +35,7 @@ Aplicación Android de participación ciudadana para reportar problemáticas, ri
 | Notificaciones | Tabla `notifications` + Realtime + notificaciones del sistema Android; FCM preparado |
 | Panel admin | Dashboard con KPI y gráficos, listado con búsqueda/filtros/orden por prioridad, gestión de reportes, usuarios, categorías, mapa completo, zonas críticas |
 | Privacidad | Vista pública sin datos personales; política y términos preliminares |
-| Datos de prueba | 9 reportes ficticios marcados `[PRUEBA]` / `is_test_data` (incluye un duplicado para demostración) |
+| Datos de prueba | Ninguno en la aplicación. Solo existe, para pruebas técnicas de la base de datos, la función opcional `seed_test_data` (no se ejecuta sola) |
 | Pruebas | Pruebas SQL funcionales y de seguridad (RLS) + pruebas unitarias Dart |
 
 ## Estructura
@@ -79,10 +92,9 @@ registro-riesgos-santa-marta/
    ```
    Resultado: `app/build/app/outputs/flutter-apk/app-release.apk`
 
-5. Crea tu cuenta en la app, conviértela en administrador y carga los datos de prueba desde el SQL Editor de Supabase:
+5. Crea tu cuenta en la app y conviértela en administrador desde el SQL Editor de Supabase:
    ```sql
    update public.profiles set role = 'admin' where id = (select id from auth.users where email = 'tu@correo.com');
-   select public.seed_test_data((select id from auth.users where email = 'tu@correo.com'));
    ```
 
 ## Estado de verificación

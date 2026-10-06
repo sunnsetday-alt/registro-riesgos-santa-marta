@@ -1,7 +1,6 @@
 // Inicio de sesión, registro, recuperación de contraseña y textos legales.
 import privacidad from '../../../app/assets/legal/privacidad.md';
 import terminos from '../../../app/assets/legal/terminos.md';
-import { DEMO_ACCOUNTS } from '../data/auth.js';
 import { button, field, h, icon, toast } from '../ui.js';
 import { V } from '../validators.js';
 
@@ -45,19 +44,7 @@ export async function loginScreen({ app }) {
     } catch (err) { toast(err.message, 'error'); } finally { busy(submit, false); }
   });
 
-  const demo = app.backend.mode === 'local' ? h('div', { class: 'demo-box' },
-    h('strong', null, 'Cuentas de demostración'),
-    demoRow('Administrador', DEMO_ACCOUNTS.admin, email, pass),
-    demoRow('Ciudadano', DEMO_ACCOUNTS.citizen, email, pass)) : null;
-
-  return authLayout('Registro de Riesgos Santa Marta', 'Ingresa para reportar y seguir las problemáticas de tu ciudad.', form, demo);
-}
-
-function demoRow(label, acc, email, pass) {
-  return h('button', {
-    type: 'button', class: 'demo-row',
-    onclick: () => { email.value = acc.email; pass.value = acc.password; email.dispatchEvent(new Event('input')); },
-  }, h('span', null, label), h('code', null, `${acc.email} / ${acc.password}`), icon('login', 18));
+  return authLayout('Registro de Riesgos Santa Marta', 'Ingresa para reportar y seguir las problemáticas de tu ciudad.', form);
 }
 
 export async function registerScreen({ app }) {
@@ -118,7 +105,7 @@ export async function forgotScreen({ app }) {
       step2.hidden = false; resetBtn.hidden = false; sendBtn.hidden = true; email.readOnly = true;
       if (r?.demoCode) {
         note.hidden = false;
-        note.replaceChildren(h('strong', null, 'Modo demostración'), h('span', null, `No hay servidor de correo en este modo. Tu código es: `), h('code', { id: 'fp-demo-code' }, r.demoCode));
+        note.replaceChildren(h('strong', null, 'Código de verificación'), h('span', null, 'Esta versión no envía correos. Usa este código para crear tu nueva clave: '), h('code', { id: 'fp-demo-code' }, r.demoCode));
       } else toast('Si el correo está registrado, recibirás un código.', 'ok');
     } catch (err) { toast(err.message, 'error'); } finally { busy(sendBtn, false); }
   };

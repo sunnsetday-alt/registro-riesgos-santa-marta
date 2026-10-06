@@ -106,16 +106,3 @@ export const BOUNDS = { minLat: 10.8, maxLat: 11.45, minLng: -74.4, maxLng: -73.
 export const CENTER = { lat: 11.2408, lng: -74.199 };
 export const insideDistrict = (lat, lng) =>
   lat >= BOUNDS.minLat && lat <= BOUNDS.maxLat && lng >= BOUNDS.minLng && lng <= BOUNDS.maxLng;
-
-// Datos de prueba (los mismos 9 de la función seed_test_data). Todos marcados.
-export const TEST_REPORTS = [
-  ['[PRUEBA] Hueco en Avenida Libertador', 'Hay un hueco enorme en la Avenida Libertador, ocupa casi todo el carril derecho y ya han caído motos.', 'vias', 5, 11.23652, -74.1948, 'Avenida del Libertador, frente a la estación de servicio', 12, 'en_proceso', 'Se verificó en campo. Se programó intervención de infraestructura vial.'],
-  ['[PRUEBA] Alcantarilla dañada en Mamatoco', 'La tapa de la alcantarilla está rota y hay rebosamiento de aguas negras sobre la calle principal.', 'alcantarillado', 4, 11.2291, -74.1733, 'Calle principal de Mamatoco, cerca de la iglesia', 8, 'validado', 'Problemática validada. Se remitió a la empresa de servicios públicos.'],
-  ['[PRUEBA] Inundación en Bonda', 'Con cada aguacero el arroyo se desborda y la calle queda inundada, el agua entra a las casas.', 'inundaciones', 5, 11.2344, -74.1293, 'Bonda, sector del arroyo', 3, 'en_revision', null],
-  ['[PRUEBA] Alumbrado público defectuoso', 'Cinco postes de luz apagados en la cuadra, la zona queda totalmente oscura en la noche.', 'alumbrado', 3, 11.2064, -74.2266, 'El Rodadero, carrera 2', 20, 'atendido', 'Se reemplazaron las luminarias. Favor confirmar funcionamiento.'],
-  ['[PRUEBA] Acumulación de basura', 'Acumulación de basura y escombros en la esquina desde hace más de una semana, genera malos olores.', 'basuras', 3, 11.2423, -74.2079, 'Centro, cerca del mercado', 6, 'recibido', null],
-  ['[PRUEBA] Señal de tránsito dañada', 'La señal de PARE de la intersección está caída en el suelo, los carros no se detienen.', 'senalizacion', 4, 11.1946, -74.2183, 'Gaira, intersección principal', 15, 'cerrado', 'Señal reinstalada por la Secretaría de Movilidad.'],
-  ['[PRUEBA] Árbol en riesgo de caer', 'Árbol grande muy inclinado sobre la vía y cables eléctricos, las raíces están levantando el andén.', 'arboles', 4, 11.2235, -74.1876, 'Los Almendros, calle 29', 2, 'recibido', null],
-  ['[PRUEBA] Daño en vía hacia Taganga', 'Hundimiento del pavimento en la curva de la vía a Taganga, peligroso para vehículos de noche.', 'vias', 4, 11.2601, -74.1931, 'Vía Santa Marta - Taganga, curva principal', 10, 'rechazado', 'Reporte de prueba rechazado para demostrar el estado.'],
-  ['[PRUEBA] Hueco peligroso en la Avenida Libertador', 'Hay un hueco peligroso en la Avenida Libertador, casi frente a la estación de gasolina.', 'vias', 4, 11.2367, -74.19455, 'Av. Libertador', 1, 'recibido', null],
-];

@@ -51,18 +51,32 @@ export async function dashboardScreen({ app }) {
           s.hotspots.length ? h('ul', { class: 'hot-list' }, s.hotspots.slice(0, 5).map((x) => h('li', null,
             h('b', { class: 'hot-n' }, String(x.count)), h('span', null, x.sector || 'Sin sector', h('small', { class: 'muted block' }, `Importancia promedio ${x.avg_severity}`)))))
             : h('p', { class: 'muted' }, 'No hay concentraciones de reportes abiertos.')))),
-      h('section', { class: 'card stack' }, h('h3', null, 'Herramientas'),
+      h('section', { class: 'card stack' }, h('h3', null, 'Herramientas y datos'),
         h('div', { class: 'row wrap' },
           button('Recalcular prioridades', { kind: 'ghost', ic: 'calculate', id: 'a-recalc', onClick: async () => {
             try { const n = await app.backend.recalculatePriorities(); toast(`Prioridad recalculada en ${n} reportes abiertos`, 'ok'); update(); } catch (e) { toast(e.message, 'error'); }
           } }),
-          button('Cargar datos de prueba', { kind: 'ghost', ic: 'science', id: 'a-seed', onClick: async () => {
-            try { const n = await app.backend.seedTestData(app.me.id); toast(n ? `${n} reportes de prueba cargados` : 'Los datos de prueba ya estaban cargados', 'ok'); update(); } catch (e) { toast(e.message, 'error'); }
-          } }),
-          button('Eliminar datos de prueba', { kind: 'danger-ghost', ic: 'delete', id: 'a-clear', onClick: async () => {
+          app.backend.hasTestData() ? button('Eliminar datos de prueba', { kind: 'danger-ghost', ic: 'delete', id: 'a-clear', onClick: async () => {
             if (!(await confirmDialog('Se eliminarán todos los reportes marcados como datos de prueba. ¿Continuar?', { ok: 'Eliminar', danger: true }))) return;
             try { const n = await app.backend.clearTestData(); toast(`${n} reportes de prueba eliminados`, 'ok'); update(); } catch (e) { toast(e.message, 'error'); }
-          } }))),
+          } }) : null,
+          app.backend.mode === 'local' ? button('Descargar copia de seguridad', { kind: 'ghost', ic: 'download', id: 'a-export', onClick: async () => {
+            try {
+              const data = await app.backend.exportData();
+              const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+              const a = h('a', { href: URL.createObjectURL(blob), download: `registro-riesgos-${new Date().toISOString().slice(0, 10)}.json` });
+              document.body.append(a); a.click(); a.remove();
+              toast('Copia de seguridad descargada', 'ok');
+            } catch (e) { toast(e.message, 'error'); }
+          } }) : null,
+          app.backend.mode === 'local' ? h('label', { class: 'btn ghost', for: 'a-import' }, icon('upload', 19), h('span', null, 'Restaurar copia')) : null,
+          app.backend.mode === 'local' ? h('input', { type: 'file', id: 'a-import', accept: 'application/json,.json', class: 'sr-only', onchange: async (e) => {
+            const f = e.target.files?.[0]; e.target.value = '';
+            if (!f) return;
+            try { const n = await app.backend.importData(JSON.parse(await f.text())); toast(`Copia restaurada: ${n} reportes`, 'ok'); update(); }
+            catch (err) { toast(err.message || 'No se pudo leer el archivo.', 'error'); }
+          } }) : null),
+        app.backend.mode === 'local' ? h('p', { class: 'muted small' }, 'Los datos se guardan en este navegador. Descarga una copia de seguridad con regularidad para no perderlos si cambias de equipo o borras los datos del navegador.') : null),
     );
     requestAnimationFrame(() => {
       const m = new MapView(hotMap, { zoom: 12 });
