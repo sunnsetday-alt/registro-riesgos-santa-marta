@@ -119,7 +119,7 @@ jobs:
           body: |
             APK de Android de **Registro de Riesgos Santa Marta**.
             Instalación: descarga `registro-riesgos-santa-marta.apk` en el teléfono, ábrelo y permite *Instalar aplicaciones desconocidas*.
-            Funciona en modo demostración (datos en el teléfono, cuentas de prueba admin@demo.co / Admin2026 y ciudadano@demo.co / Ciudadano2026).
+            Cada ciudadano crea su cuenta con su propio correo y clave. Los datos se guardan en el teléfono.
             Para usar el backend real, configura Supabase en `web/public/config.js` y vuelve a ejecutar el flujo.
           files: registro-riesgos-santa-marta.apk
 
