@@ -1,0 +1,13 @@
+# Compilados y dependencias
+web/dist/
+web/dist-artifact/
+web/node_modules/
+web/android/
+web/package*.json
+web/capacitor.config.json
+app/.dart_tool/
+app/build/
+app/android/
+app/env.json
+*.env
+.DS_Store
