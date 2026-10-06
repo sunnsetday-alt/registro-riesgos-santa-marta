@@ -1,0 +1,153 @@
+# Registro de Riesgos Santa Marta — publicación automática
+# 1. Si llega proyecto.tar.gz, lo descomprime en el repositorio.
+# 2. Compila la versión web (PWA) y la publica en GitHub Pages.
+# 3. Genera la APK Android a partir de la PWA (Capacitor) y la publica en Releases.
+# 4. Compila la app Flutter (verificación; requiere Supabase para usarse).
+name: Publicar y compilar
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+jobs:
+  preparar:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Descomprimir proyecto.tar.gz (si existe)
+        id: commit
+        run: |
+          if [ -f proyecto.tar.gz ]; then
+            tar -xzf proyecto.tar.gz
+            git rm -q proyecto.tar.gz
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -q -m "Proyecto Registro de Riesgos Santa Marta" || true
+            git push
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  web:
+    needs: preparar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ needs.preparar.outputs.sha }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Compilar PWA
+        working-directory: web
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund esbuild@0.24.0
+          node tools/build.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: web/dist }
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  apk:
+    needs: preparar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ needs.preparar.outputs.sha }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: Compilar PWA
+        working-directory: web
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund esbuild@0.24.0 @capacitor/core@6.2.0 @capacitor/cli@6.2.0 @capacitor/android@6.2.0
+          node tools/build.mjs
+      - name: Crear proyecto Android (Capacitor)
+        working-directory: web
+        run: |
+          cat > capacitor.config.json <<'EOF'
+          { "appId": "co.santamarta.registroriesgos", "appName": "Riesgos Santa Marta", "webDir": "dist",
+            "android": { "allowMixedContent": false }, "server": { "androidScheme": "https" } }
+          EOF
+          npx cap add android
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-feature android:name="android.hardware.location.gps" android:required="false" />#' $M
+          grep -q ACCESS_FINE_LOCATION $M
+          # Ícono de la aplicación
+          R=android/app/src/main/res
+          rm -rf $R/mipmap-anydpi-v26
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            cp dist/icons/icon-192.png $R/mipmap-$d/ic_launcher.png
+            cp dist/icons/icon-192.png $R/mipmap-$d/ic_launcher_round.png
+            cp dist/icons/maskable-192.png $R/mipmap-$d/ic_launcher_foreground.png
+          done
+          npx cap sync android
+      - name: Compilar APK
+        working-directory: web/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon -q
+          cp app/build/outputs/apk/debug/app-debug.apk ../../registro-riesgos-santa-marta.apk
+          ls -la ../../registro-riesgos-santa-marta.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: registro-riesgos-santa-marta-apk
+          path: registro-riesgos-santa-marta.apk
+      - name: Publicar APK en Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Registro de Riesgos Santa Marta v1.0.${{ github.run_number }}
+          make_latest: true
+          body: |
+            APK de Android de **Registro de Riesgos Santa Marta**.
+            Instalación: descarga `registro-riesgos-santa-marta.apk` en el teléfono, ábrelo y permite *Instalar aplicaciones desconocidas*.
+            Funciona en modo demostración (datos en el teléfono, cuentas de prueba admin@demo.co / Admin2026 y ciudadano@demo.co / Ciudadano2026).
+            Para usar el backend real, configura Supabase en `web/public/config.js` y vuelve a ejecutar el flujo.
+          files: registro-riesgos-santa-marta.apk
+
+  flutter:
+    needs: preparar
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ needs.preparar.outputs.sha }}" }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Configuración (secretos opcionales)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: jq -n --arg u "$SUPABASE_URL" --arg k "$SUPABASE_ANON_KEY" '{SUPABASE_URL:$u, SUPABASE_ANON_KEY:$k}' > env.json
+      - run: flutter pub get
+      - run: dart run tool/setup_android.dart
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test
+      - run: flutter build apk --release --dart-define-from-file=env.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-flutter-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
