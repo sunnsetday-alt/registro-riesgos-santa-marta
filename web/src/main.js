@@ -104,7 +104,13 @@ async function boot() {
 // Instalación como aplicación (PWA).
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); globalThis.__installPrompt = e; });
 if ('serviceWorker' in navigator && location.protocol !== 'file:' && !globalThis.claude) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // Al publicar una versión nueva, la app se recarga sola una vez para usarla.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController && !reloading) { reloading = true; location.reload(); }
+  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then((r) => r.update()).catch(() => {}));
 }
 
 boot();

@@ -50,7 +50,7 @@ for (const f of readdirSync(join(ROOT, 'public'))) {
   let text = readFileSync(src, 'utf8').replaceAll('__VERSION__', VERSION);
   writeFileSync(join(DIST, f), text);
 }
-const precache = ['./', 'index.html', 'app.js', 'app.css', 'config.js', 'manifest.webmanifest',
+const precache = ['./', 'index.html', `app.js?v=${VERSION}`, `app.css?v=${VERSION}`, 'config.js', 'manifest.webmanifest',
   ...readdirSync(join(DIST, 'icons')).filter((f) => f.endsWith('.png') || f.endsWith('.svg')).map((f) => `icons/${f}`)];
 writeFileSync(join(DIST, 'sw.js'), readFileSync(join(DIST, 'sw.js'), 'utf8').replace('__FILES__', JSON.stringify(precache)));
 writeFileSync(join(DIST, '.nojekyll'), '');

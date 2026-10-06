@@ -31,17 +31,31 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (/supabase\.co$|supabase\.in$/.test(url.hostname) || url.pathname.includes('/rest/v1/') || url.pathname.includes('/auth/v1/')) return;
 
-  // Aplicación propia: caché primero, actualizando en segundo plano.
+  // Aplicación propia.
+  //  - Páginas (navegación): red primero, para recibir siempre la versión nueva;
+  //    sin conexión se sirve la copia guardada.
+  //  - Recursos versionados (app.js?v=…, íconos): caché primero.
   if (url.origin === self.location.origin) {
     e.respondWith((async () => {
       const cache = await caches.open(APP_CACHE);
-      const hit = await cache.match(req, { ignoreSearch: true });
-      const net = fetch(req).then((res) => { if (res.ok && url.pathname.endsWith('config.js')) cache.put(req, res.clone()); return res; }).catch(() => null);
-      if (hit) { e.waitUntil(net); return hit; }
-      const res = await net;
-      if (res) return res;
-      if (req.mode === 'navigate') return (await cache.match('./index.html')) || Response.error();
-      return Response.error();
+      if (req.mode === 'navigate' || url.pathname.endsWith('config.js') || url.pathname.endsWith('manifest.webmanifest')) {
+        try {
+          const res = await fetch(req, { cache: 'no-store' });
+          if (res.ok) cache.put(req.mode === 'navigate' ? './index.html' : req, res.clone());
+          return res;
+        } catch {
+          return (await cache.match(req.mode === 'navigate' ? './index.html' : req, { ignoreSearch: req.mode !== 'navigate' })) || Response.error();
+        }
+      }
+      const hit = await cache.match(req);
+      if (hit) return hit;
+      try {
+        const res = await fetch(req);
+        if (res.ok) cache.put(req, res.clone());
+        return res;
+      } catch {
+        return (await cache.match(req, { ignoreSearch: true })) || Response.error();
+      }
     })());
     return;
   }
