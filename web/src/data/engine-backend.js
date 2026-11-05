@@ -291,6 +291,35 @@ export class EngineBackend {
     await this.store.put('reports', next);
     await this._refreshPriority(id);
   }
+  /** Elimina un reporte y todo su historial (solo administrador). */
+  async deleteReport(id) {
+    await this._requireAdmin();
+    const r = this.store.get('reports', id);
+    if (!r) throw new AppError('Reporte no encontrado.');
+    for (const t of ['history', 'observations', 'notifications']) {
+      for (const row of this.store.list(t).filter((x) => x.report_id === id)) await this.store.remove(t, row.id);
+    }
+    const touched = new Set();
+    for (const d of this.store.list('duplicates').filter((x) => x.report_id === id || x.candidate_id === id)) {
+      touched.add(d.report_id === id ? d.candidate_id : d.report_id);
+      await this.store.remove('duplicates', d.id);
+    }
+    for (const o of this.store.list('reports').filter((x) => x.duplicate_of === id)) {
+      await this.store.put('reports', { ...o, duplicate_of: null });
+      touched.add(o.id);
+    }
+    await this.store.remove('reports', id);
+    await this.store.deletePhoto?.(id);
+    for (const oid of touched) {
+      const o = this.store.get('reports', oid);
+      if (!o) continue;
+      const pending = this.store.list('duplicates').some((x) => x.report_id === oid && x.decision === 'pendiente');
+      await this.store.put('reports', { ...o, possible_duplicate: pending });
+      await this._refreshPriority(oid);
+    }
+    return r.code;
+  }
+
   async duplicates(id) {
     await this._requireStaff();
     return this.store.list('duplicates').filter((d) => d.report_id === id).map((d) => {

@@ -136,7 +136,12 @@ export async function adminReportScreen({ app, params }) {
         h('div', { class: 'row wrap' },
           button('Cambiar estado', { ic: 'swap_horiz', id: 'a-status-btn', onClick: () => statusSheet(app, r, update) }),
           button('Observación', { kind: 'ghost', ic: 'add_comment', id: 'a-obs-btn', onClick: () => observationSheet(app, r, update) }),
-          button('Modificar', { kind: 'ghost', ic: 'edit', id: 'a-edit-btn', onClick: () => editSheet(app, r, update) }))),
+          button('Modificar', { kind: 'ghost', ic: 'edit', id: 'a-edit-btn', onClick: () => editSheet(app, r, update) }),
+          app.isAdmin ? button('Eliminar', { kind: 'danger-ghost', ic: 'delete', id: 'a-delete-btn', onClick: async () => {
+            if (!(await confirmDialog(`Se eliminará el reporte ${r.code} con su historial, observaciones y fotografía. Esta acción no se puede deshacer. ¿Continuar?`, { ok: 'Eliminar reporte', danger: true }))) return;
+            try { const code = await app.backend.deleteReport(r.id); toast(`Reporte ${code} eliminado`, 'ok'); app.go('/admin/reports'); }
+            catch (e) { toast(e.message, 'error'); }
+          } }) : null)),
       h('div', { class: 'two-col' },
         h('div', { class: 'stack' }, reportInfo(app, r)),
         h('div', { class: 'stack' },

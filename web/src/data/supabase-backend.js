@@ -255,6 +255,14 @@ export class SupabaseBackend {
     await this._raw('POST', '/rest/v1/observations', { report_id: id, body: body.trim(), is_public: !!isPublic });
   }
   async updateReport(id, changes) { await this._raw('PATCH', `/rest/v1/reports?id=eq.${id}`, changes); }
+  async deleteReport(id) {
+    const r = await this.report(id);
+    await this._raw('DELETE', `/rest/v1/reports?id=eq.${id}`);
+    if (r?.photo_url && r.user_id) {
+      try { await this._raw('DELETE', `/storage/v1/object/report-photos/${r.user_id}/${r.client_uuid}.jpg`); } catch {}
+    }
+    return r?.code;
+  }
   async duplicates(id) {
     const rows = await this._get(`duplicate_candidates?select=*,candidate:reports!duplicate_candidates_candidate_id_fkey(code,title)&report_id=eq.${id}&order=score.desc`);
     return rows.map((d) => ({ ...d, candidate_code: d.candidate?.code || '', candidate_title: d.candidate?.title || '',

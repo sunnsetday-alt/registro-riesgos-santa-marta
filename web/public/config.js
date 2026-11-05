@@ -18,8 +18,8 @@ window.RSM_CONFIG = {
   ADMIN_ACCOUNT: {
     email: 'admin@riesgos-santamarta.co',
     name: 'Administración',
-    salt: '1391ffd658c50b72eead16311e575601',
+    salt: 'c8032d0e880d7cc76fbebb96e17b2a2c',
     iterations: 310000,
-    hash: '5ab27f63e315e87b9b895262f057689cca1aed139daf5e3ad65657f529cc90e8',
+    hash: '40c5efe18ea1c71eafd792c343e3f688da4d0e19943f7e49194d2d7704f7b5ef',
   },
 };
